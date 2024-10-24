@@ -1,2 +1,1 @@
-@echo off
-start /b pythonw EasyQuantizationGUI.py
+python EasyQuantizationGUI.py

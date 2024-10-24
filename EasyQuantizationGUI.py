@@ -6,6 +6,7 @@ import subprocess
 import shutil
 import winsound
 import tkinter.scrolledtext as scrolledtext
+import importlib.util
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -172,6 +173,74 @@ def run_llama_quantize():
     # Play sound effect
     winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS)
 
+def setup_environment():
+    process_text.insert(tk.END, "Checking environment...\n")
+    root.update()
+
+    # Check for GitPython
+    try:
+        from git import Repo
+        process_text.insert(tk.END, "GitPython is already installed.\n")
+    except ImportError:
+        process_text.insert(tk.END, "Installing GitPython...\n")
+        root.update()
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "GitPython"])
+            process_text.insert(tk.END, "Successfully installed GitPython.\n")
+        except subprocess.CalledProcessError as e:
+            process_text.insert(tk.END, f"Error installing GitPython: {e}\n")
+            return False
+
+    # List of other required packages
+    required_packages = ['torch', 'tqdm', 'safetensors']
+
+    for package in required_packages:
+        try:
+            __import__(package)
+            process_text.insert(tk.END, f"{package} is already installed.\n")
+        except ImportError:
+            process_text.insert(tk.END, f"Installing {package}...\n")
+            root.update()
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+                process_text.insert(tk.END, f"Successfully installed {package}.\n")
+            except subprocess.CalledProcessError as e:
+                process_text.insert(tk.END, f"Error installing {package}: {e}\n")
+                return False
+
+    # Check if gguf-py is installed
+    gguf_installed = False
+    try:
+        __import__('gguf')
+        process_text.insert(tk.END, "gguf-py is already installed.\n")
+        gguf_installed = True
+    except ImportError:
+        pass
+
+    if not gguf_installed:
+        # Clone llama.cpp repository only if gguf-py is not installed
+        if not os.path.exists("llama.cpp"):
+            try:
+                Repo.clone_from("https://github.com/ggerganov/llama.cpp", "llama.cpp")
+                process_text.insert(tk.END, "Successfully cloned llama.cpp repository.\n")
+            except Exception as e:
+                process_text.insert(tk.END, f"Error cloning repository: {e}\n")
+                return False
+
+        # Install gguf-py
+        process_text.insert(tk.END, "Installing gguf-py...\n")
+        root.update()
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "llama.cpp/gguf-py"])
+            process_text.insert(tk.END, "Successfully installed gguf-py.\n")
+        except subprocess.CalledProcessError as e:
+            process_text.insert(tk.END, f"Error installing gguf-py: {e}\n")
+            return False
+
+    process_text.insert(tk.END, "Environment check completed. All dependencies are in place.\n")
+    root.update()
+    return True
+
 root = tk.Tk()
 root.title("Easy Quantization GUI")
 root.geometry("800x600")  # Enlarge the main window
@@ -227,6 +296,21 @@ output_entry.bind("<FocusIn>", lambda event: scroll_entry_to_end(output_entry))
 run_button = tk.Button(root, text="Run Quantization", command=run_llama_quantize)
 run_button.pack(pady=20)
 
+# Add process log to bottom of main window
+process_frame = tk.Frame(root)
+process_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+
+process_label = tk.Label(process_frame, text="Process Log:")
+process_label.pack(side=tk.TOP, anchor='w')
+
+process_text = scrolledtext.ScrolledText(process_frame, wrap=tk.WORD, height=15)
+process_text.pack(expand=True, fill=tk.BOTH)
+
+# Setup environment before creating other UI elements
+if not setup_environment():
+    messagebox.showerror("Setup Error", "Failed to set up the environment. Please check the process log for details.")
+    root.quit()
+
 # Bind events to update output filename
 input_entry.bind("<KeyRelease>", update_output_filename)
 quantize_level_var.trace_add("write", update_output_filename)
@@ -236,15 +320,5 @@ def on_window_resize(event):
     scroll_entry_to_end(output_entry)
 
 root.bind("<Configure>", on_window_resize)
-
-# Add process log to main window
-process_frame = tk.Frame(root)
-process_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
-
-process_label = tk.Label(process_frame, text="Process Log:")
-process_label.pack(side=tk.TOP, anchor='w')
-
-process_text = scrolledtext.ScrolledText(process_frame, wrap=tk.WORD, height=15)
-process_text.pack(expand=True, fill=tk.BOTH)
 
 root.mainloop()
