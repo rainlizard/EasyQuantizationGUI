@@ -177,22 +177,8 @@ def setup_environment():
     process_text.insert(tk.END, "Checking environment...\n")
     root.update()
 
-    # Check for GitPython
-    try:
-        from git import Repo
-        process_text.insert(tk.END, "GitPython is already installed.\n")
-    except ImportError:
-        process_text.insert(tk.END, "Installing GitPython...\n")
-        root.update()
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "GitPython"])
-            process_text.insert(tk.END, "Successfully installed GitPython.\n")
-        except subprocess.CalledProcessError as e:
-            process_text.insert(tk.END, f"Error installing GitPython: {e}\n")
-            return False
-
-    # List of other required packages
-    required_packages = ['torch', 'tqdm', 'safetensors']
+    # List of required packages (added 'gguf')
+    required_packages = ['torch', 'tqdm', 'safetensors', 'gguf']
 
     for package in required_packages:
         try:
@@ -207,35 +193,6 @@ def setup_environment():
             except subprocess.CalledProcessError as e:
                 process_text.insert(tk.END, f"Error installing {package}: {e}\n")
                 return False
-
-    # Check if gguf-py is installed
-    gguf_installed = False
-    try:
-        __import__('gguf')
-        process_text.insert(tk.END, "gguf-py is already installed.\n")
-        gguf_installed = True
-    except ImportError:
-        pass
-
-    if not gguf_installed:
-        # Clone llama.cpp repository only if gguf-py is not installed
-        if not os.path.exists("llama.cpp"):
-            try:
-                Repo.clone_from("https://github.com/ggerganov/llama.cpp", "llama.cpp")
-                process_text.insert(tk.END, "Successfully cloned llama.cpp repository.\n")
-            except Exception as e:
-                process_text.insert(tk.END, f"Error cloning repository: {e}\n")
-                return False
-
-        # Install gguf-py
-        process_text.insert(tk.END, "Installing gguf-py...\n")
-        root.update()
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "llama.cpp/gguf-py"])
-            process_text.insert(tk.END, "Successfully installed gguf-py.\n")
-        except subprocess.CalledProcessError as e:
-            process_text.insert(tk.END, f"Error installing gguf-py: {e}\n")
-            return False
 
     process_text.insert(tk.END, "Environment check completed. All dependencies are in place.\n")
     root.update()
