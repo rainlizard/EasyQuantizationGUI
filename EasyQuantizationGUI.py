@@ -177,8 +177,8 @@ def setup_environment():
     process_text.insert(tk.END, "Checking environment...\n")
     root.update()
 
-    # List of required packages (added 'gguf')
-    required_packages = ['torch', 'tqdm', 'safetensors', 'gguf']
+    # List of required packages (added 'sentencepiece')
+    required_packages = ['torch', 'tqdm', 'safetensors', 'gguf', 'sentencepiece']
 
     for package in required_packages:
         try:
