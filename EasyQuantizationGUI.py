@@ -1,22 +1,24 @@
+import sys
+import subprocess
+import importlib
+import os
+
+def install(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+
+try:
+    import torch, tqdm, safetensors, gguf, sentencepiece, yaml, numpy
+except ImportError:
+    print("Some required packages are missing. Installing from requirements.txt...")
+    install("requirements.txt")
+    import torch, tqdm, safetensors, gguf, sentencepiece, yaml, numpy
+
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-import sys
 import os
-import subprocess
 import shutil
 import winsound
 import tkinter.scrolledtext as scrolledtext
-import importlib.util
-
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
 
 def scroll_entry_to_end(entry):
     entry.xview_moveto(1)
@@ -24,35 +26,55 @@ def scroll_entry_to_end(entry):
 def browse_file(entry):
     file_path = filedialog.askopenfilename(filetypes=[("Model files", "*.safetensors *.sft")])
     if file_path:
+        file_path = file_path.replace('\\', '/')  # Ensure forward slashes
         entry.delete(0, tk.END)
         entry.insert(0, file_path)
         scroll_entry_to_end(entry)
-        update_output_filename()
+        suggest_output_file()  # Call this instead of update_output_file
 
-def browse_output_file(entry):
-    file_path = filedialog.asksaveasfilename(defaultextension=".gguf", 
-                                             filetypes=[("GGUF files", "*.gguf")])
-    if file_path:
-        entry.delete(0, tk.END)
-        entry.insert(0, file_path)
-        scroll_entry_to_end(entry)
-
-def update_output_filename(*args):
+def suggest_output_file():
     input_file = input_entry.get()
     quantize_level = quantize_level_var.get()
     if input_file:
         input_dir = os.path.dirname(input_file)
-        base_name = os.path.splitext(os.path.basename(input_file))[0]
-        output_file = os.path.join(input_dir, f"{base_name}-{quantize_level}.gguf")
-        if '/' in input_file:
-            output_file = output_file.replace('\\', '/')
-        elif '\\' in input_file:
-            output_file = output_file.replace('/', '\\')
+        input_filename = os.path.basename(input_file)
+        input_name, _ = os.path.splitext(input_filename)
+        output_file = f"{input_dir}/{input_name}-{quantize_level}.gguf"
         output_entry.delete(0, tk.END)
         output_entry.insert(0, output_file)
         scroll_entry_to_end(output_entry)
 
+def browse_output_file(entry):
+    # Get the current input file and quantization level
+    input_file = input_entry.get()
+    quantize_level = quantize_level_var.get()
+    
+    # Generate a default output filename
+    if input_file:
+        input_dir = os.path.dirname(input_file)
+        input_filename = os.path.basename(input_file)
+        input_name, _ = os.path.splitext(input_filename)
+        default_filename = f"{input_name}-{quantize_level}.gguf"
+    else:
+        default_filename = f"output-{quantize_level}.gguf"
+        input_dir = "/"
+    
+    # Open the file dialog with the default filename
+    file_path = filedialog.asksaveasfilename(
+        initialdir=input_dir,
+        initialfile=default_filename,
+        defaultextension=".gguf", 
+        filetypes=[("GGUF files", "*.gguf")]
+    )
+    
+    if file_path:
+        file_path = file_path.replace('\\', '/')  # Ensure forward slashes
+        entry.delete(0, tk.END)
+        entry.insert(0, file_path)
+        scroll_entry_to_end(entry)
+
 def disable_ui():
+    global input_entry, output_entry, input_browse, output_browse, quantize_dropdown, run_button
     input_entry.config(state='disabled')
     output_entry.config(state='disabled')
     input_browse.config(state='disabled')
@@ -61,6 +83,7 @@ def disable_ui():
     run_button.config(state='disabled')
 
 def enable_ui():
+    global input_entry, output_entry, input_browse, output_browse, quantize_dropdown, run_button
     input_entry.config(state='normal')
     output_entry.config(state='normal')
     input_browse.config(state='normal')
@@ -173,109 +196,85 @@ def run_llama_quantize():
     # Play sound effect
     winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS)
 
-def setup_environment():
-    process_text.insert(tk.END, "Checking environment...\n")
-    root.update()
+def main():
+    global root, process_text, input_entry, output_entry, quantize_dropdown, run_button, quantize_level_var
+    global input_browse, output_browse  # Add these two variables
+    root = tk.Tk()
+    root.title("Easy Quantization GUI")
+    root.geometry("800x600")
 
-    # List of required packages (added 'sentencepiece')
-    required_packages = ['torch', 'tqdm', 'safetensors', 'gguf', 'sentencepiece']
+    # Quantize level selection
+    quantize_frame = tk.Frame(root)
+    quantize_frame.pack(pady=10, padx=10)
 
-    for package in required_packages:
-        try:
-            __import__(package)
-            process_text.insert(tk.END, f"{package} is already installed.\n")
-        except ImportError:
-            process_text.insert(tk.END, f"Installing {package}...\n")
-            root.update()
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-                process_text.insert(tk.END, f"Successfully installed {package}.\n")
-            except subprocess.CalledProcessError as e:
-                process_text.insert(tk.END, f"Error installing {package}: {e}\n")
-                return False
+    quantize_label = tk.Label(quantize_frame, text="Quantize Level:")
+    quantize_label.pack(side=tk.LEFT)
 
-    process_text.insert(tk.END, "Environment check completed. All dependencies are in place.\n")
-    root.update()
-    return True
+    quantize_levels = ["Q2_K", "Q3_K_S", "Q4_0", "Q4_1", "Q4_K_S", "Q5_0", "Q5_1", "Q5_K_S", "Q6_K", "Q8_0"]
+    quantize_level_var = tk.StringVar(root)
+    quantize_level_var.set("Q8_0")  # Set default value to Q8_0
 
-root = tk.Tk()
-root.title("Easy Quantization GUI")
-root.geometry("800x600")  # Enlarge the main window
+    quantize_dropdown = ttk.Combobox(quantize_frame, textvariable=quantize_level_var, values=quantize_levels, state="readonly")
+    quantize_dropdown.pack(side=tk.LEFT)
+    quantize_dropdown.bind("<<ComboboxSelected>>", lambda event: suggest_output_file())
 
-# Quantize level selection
-quantize_frame = tk.Frame(root)
-quantize_frame.pack(pady=10, padx=10)
+    # Input file selection
+    input_frame = tk.Frame(root)
+    input_frame.pack(pady=10, padx=10, fill=tk.X)
 
-quantize_label = tk.Label(quantize_frame, text="Quantize Level:")
-quantize_label.pack(side=tk.LEFT)
+    input_label = tk.Label(input_frame, text="Input File:")
+    input_label.pack(side=tk.LEFT)
 
-quantize_levels = ["Q2_K", "Q3_K_S", "Q4_0", "Q4_1", "Q4_K_S", "Q5_0", "Q5_1", "Q5_K_S", "Q6_K", "Q8_0"]
-quantize_level_var = tk.StringVar(root)
-quantize_level_var.set("Q8_0")  # Set default value to Q8_0
+    input_entry = tk.Entry(input_frame)
+    input_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
-quantize_dropdown = ttk.Combobox(quantize_frame, textvariable=quantize_level_var, values=quantize_levels, state="readonly")
-quantize_dropdown.pack(side=tk.LEFT)
-quantize_dropdown.bind("<<ComboboxSelected>>", lambda event: scroll_entry_to_end(output_entry))
+    input_browse = tk.Button(input_frame, text="Browse", command=lambda: browse_file(input_entry))
+    input_browse.pack(side=tk.RIGHT)
 
-# Input file selection
-input_frame = tk.Frame(root)
-input_frame.pack(pady=10, padx=10, fill=tk.X)
+    # Add binding to scroll input entry when it gains focus
+    input_entry.bind("<FocusIn>", lambda event: scroll_entry_to_end(input_entry))
 
-input_label = tk.Label(input_frame, text="Input File:")
-input_label.pack(side=tk.LEFT)
+    # Output file selection
+    output_frame = tk.Frame(root)
+    output_frame.pack(pady=10, padx=10, fill=tk.X)
 
-input_entry = tk.Entry(input_frame)
-input_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
+    output_label = tk.Label(output_frame, text="Output File:")
+    output_label.pack(side=tk.LEFT)
 
-input_browse = tk.Button(input_frame, text="Browse", command=lambda: browse_file(input_entry))
-input_browse.pack(side=tk.RIGHT)
+    output_entry = tk.Entry(output_frame)
+    output_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
 
-# Add binding to scroll input entry when it gains focus
-input_entry.bind("<FocusIn>", lambda event: scroll_entry_to_end(input_entry))
+    output_browse = tk.Button(output_frame, text="Browse", command=lambda: browse_output_file(output_entry))
+    output_browse.pack(side=tk.RIGHT)
 
-# Output file selection
-output_frame = tk.Frame(root)
-output_frame.pack(pady=10, padx=10, fill=tk.X)
+    # Add binding to scroll output entry when it gains focus
+    output_entry.bind("<FocusIn>", lambda event: scroll_entry_to_end(output_entry))
 
-output_label = tk.Label(output_frame, text="Output File:")
-output_label.pack(side=tk.LEFT)
+    # Run button
+    run_button = tk.Button(root, text="Run Quantization", command=run_llama_quantize)
+    run_button.pack(pady=20)
 
-output_entry = tk.Entry(output_frame)
-output_entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
+    # Add process log to bottom of main window
+    process_frame = tk.Frame(root)
+    process_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
 
-output_browse = tk.Button(output_frame, text="Browse", command=lambda: browse_output_file(output_entry))
-output_browse.pack(side=tk.RIGHT)
+    process_label = tk.Label(process_frame, text="Process Log:")
+    process_label.pack(side=tk.TOP, anchor='w')
 
-# Add binding to scroll output entry when it gains focus
-output_entry.bind("<FocusIn>", lambda event: scroll_entry_to_end(output_entry))
+    process_text = scrolledtext.ScrolledText(process_frame, wrap=tk.WORD, height=15)
+    process_text.pack(expand=True, fill=tk.BOTH)
 
-# Run button
-run_button = tk.Button(root, text="Run Quantization", command=run_llama_quantize)
-run_button.pack(pady=20)
+    root.mainloop()
 
-# Add process log to bottom of main window
-process_frame = tk.Frame(root)
-process_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
 
-process_label = tk.Label(process_frame, text="Process Log:")
-process_label.pack(side=tk.TOP, anchor='w')
+    return os.path.join(base_path, relative_path)
 
-process_text = scrolledtext.ScrolledText(process_frame, wrap=tk.WORD, height=15)
-process_text.pack(expand=True, fill=tk.BOTH)
-
-# Setup environment before creating other UI elements
-if not setup_environment():
-    messagebox.showerror("Setup Error", "Failed to set up the environment. Please check the process log for details.")
-    root.quit()
-
-# Bind events to update output filename
-input_entry.bind("<KeyRelease>", update_output_filename)
-quantize_level_var.trace_add("write", update_output_filename)
-
-def on_window_resize(event):
-    scroll_entry_to_end(input_entry)
-    scroll_entry_to_end(output_entry)
-
-root.bind("<Configure>", on_window_resize)
-
-root.mainloop()
+if __name__ == "__main__":
+    main()

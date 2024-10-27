@@ -1,7 +1,7 @@
 # (c) City96 || Apache-2.0 (apache.org/licenses/LICENSE-2.0)
 import os
 import torch
-import gguf # This needs to be the llama.cpp one specifically!
+import gguf
 import argparse
 from tqdm import tqdm
 
