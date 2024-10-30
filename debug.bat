@@ -1,0 +1,2 @@
+python EasyQuantizationGUI.py
+pause
