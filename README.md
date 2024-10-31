@@ -5,5 +5,5 @@ This application basically just simplifies this process: https://github.com/city
 Run `EasyQuantizationGUI.bat` to start the application.
 
 Requirements:
-- Python
+- [Python](https://www.python.org/downloads/windows/)
 - Windows (can be adjusted later to support Linux)
