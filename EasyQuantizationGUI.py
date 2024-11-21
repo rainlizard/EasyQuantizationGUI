@@ -123,6 +123,20 @@ def run_llama_quantize():
     output_dir = os.path.dirname(output_file)
     temp_gguf_file = os.path.join(output_dir, "temporary_file_during_quantization")
 
+    # Add cleanup of existing temp file
+    if os.path.exists(temp_gguf_file):
+        try:
+            os.remove(temp_gguf_file)
+            process_text.insert(tk.END, "Cleaned up existing temporary file.\n")
+            process_text.see(tk.END)
+            root.update()
+        except Exception as e:
+            process_text.insert(tk.END, f"Error cleaning up temporary file: {e}\n")
+            process_text.see(tk.END)
+            root.update()
+            enable_ui()
+            return
+
     try:
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
