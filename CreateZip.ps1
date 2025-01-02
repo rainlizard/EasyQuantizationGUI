@@ -1,5 +1,15 @@
+# Read VERSION from Python file
+$versionLine = Get-Content "EasyQuantizationGUI.py" | Select-String "VERSION = "
+if ($versionLine -match 'VERSION = "(.*?)"') {
+    $version = $matches[1]
+    Write-Host "Found version: $version"
+} else {
+    Write-Host "WARNING: Version not found, using 'unknown'"
+    $version = "unknown"
+}
+
 # Define the zip file name and subdirectory name
-$zipName = "EasyQuantizationGUI.zip"
+$zipName = "EasyQuantizationGUI_v$version.zip"
 $subDirName = "EasyQuantizationGUI"
 
 # Get the current directory

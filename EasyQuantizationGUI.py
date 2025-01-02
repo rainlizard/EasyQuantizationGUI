@@ -1,3 +1,5 @@
+VERSION = "1.09"
+
 import sys
 import subprocess
 import importlib
@@ -142,7 +144,10 @@ def run_llama_quantize():
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startupinfo.wShowWindow = subprocess.SW_HIDE
 
-        process = subprocess.Popen(["python", convert_py_path, "--src", input_file, "--dst", temp_gguf_file], 
+        # Get the Python executable path from the current environment
+        pythonpath = sys.executable
+        
+        process = subprocess.Popen([pythonpath, convert_py_path, "--src", input_file, "--dst", temp_gguf_file], 
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, 
                                    bufsize=1, universal_newlines=True, startupinfo=startupinfo)
         
@@ -214,7 +219,7 @@ def main():
     global root, process_text, input_entry, output_entry, quantize_dropdown, run_button, quantize_level_var
     global input_browse, output_browse  # Add these two variables
     root = tk.Tk()
-    root.title("Easy Quantization GUI")
+    root.title(f"Easy Quantization GUI v{VERSION}")
     root.geometry("800x600")
 
     # Quantize level selection
