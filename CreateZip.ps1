@@ -9,7 +9,7 @@ if ($versionLine -match 'VERSION = "(.*?)"') {
 }
 
 # Define the zip file name and subdirectory name
-$zipName = "EasyQuantizationGUI_v$version.zip"
+$zipName = "EasyQuantizationGUI-$version.zip"
 $subDirName = "EasyQuantizationGUI"
 
 # Get the current directory
