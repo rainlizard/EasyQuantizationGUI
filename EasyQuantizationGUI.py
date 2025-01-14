@@ -1,4 +1,4 @@
-VERSION = "1.09"
+VERSION = "1.10"
 
 import sys
 import subprocess
